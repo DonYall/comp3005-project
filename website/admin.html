@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="navbar">Admin Dashboard</div>
+
+<div class="container">
+
+    <h3>Room Booking</h3>
+    <button class="page-btn" onclick="saveRoomBooking()">Book Room</button>
+
+    <h3>Equipment Maintenance</h3>
+    <button class="page-btn" onclick="logMaintenance()">Log Maintenance</button>
+
+    <h3>Class Management</h3>
+    <button class="page-btn" onclick="createClass()">Create Class</button>
+
+    <h3>Billing</h3>
+    <button class="page-btn" onclick="generateBill()">Generate Bill</button>
+
+    <button onclick="redirect('index.html')" class="back-btn">Logout</button>
+</div>
+
+<script src="scripts.js"></script>
+</body>
+</html>
