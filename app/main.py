@@ -28,7 +28,6 @@ def get_input(prompt):
     return input(f"{prompt}: ").strip()
 
 def get_id_by_email(cur, table, email, id_col):
-    """Helper to resolve Email -> ID"""
     query = f"SELECT {id_col} FROM {table} WHERE email = %s"
     cur.execute(query, (email,))
     row = cur.fetchone()
