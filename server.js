@@ -10,7 +10,7 @@ const pool = new Pool({
     user: "postgres",
     host: "localhost",
     database: "fitness_db",
-    password: "password",
+    password: "don",
     port: 5432,
 });
 
@@ -56,16 +56,71 @@ app.post("/api/signup", async (req, res) => {
     }
 });
 
-app.post("/api/login/trainer", async (req, res) => {
-    const { username } = req.body;
-    const result = await pool.query("SELECT trainer_id FROM Trainer WHERE name = $1", [username]);
-    if (result.rows.length > 0) res.json({ success: true, redirect: "trainer.html" });
-    else res.status(401).json({ success: false, message: "Trainer not found" });
+app.post("/api/signup/trainer", async (req, res) => {
+    const { name, email, phone, specialization, bio } = req.body;
+
+    try {
+        await pool.query(
+            `INSERT INTO Trainer (name, email, phone, specialization, bio) 
+     VALUES ($1, $2, $3, $4, $5)`,
+            [name, email, phone, specialization, bio]
+        );
+        res.json({ success: true, message: "Trainer registered!" });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
-app.post("/api/login/admin", (req, res) => {
-    if (req.body.username.toLowerCase() === "admin") res.json({ success: true, redirect: "admin.html" });
-    else res.status(401).json({ success: false, message: "Invalid credentials" });
+app.post("/api/signup/admin", async (req, res) => {
+    const { name, email, phone } = req.body;
+    try {
+        await pool.query(`INSERT INTO Admin (name, email, phone) VALUES ($1, $2, $3)`, [name, email, phone]);
+        res.json({ success: true, message: "Admin registered!" });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post("/api/login/member", async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const result = await pool.query("SELECT member_id FROM Member WHERE email = $1", [email]);
+
+        if (result.rows.length > 0) {
+            return res.json({
+                success: true,
+                memberId: result.rows[0].member_id,
+                redirect: "member.html",
+            });
+        }
+
+        res.status(401).json({ success: false, message: "Member not found" });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+app.post("/api/login/trainer", async (req, res) => {
+    const { email } = req.body;
+    try {
+        const result = await pool.query("SELECT trainer_id FROM Trainer WHERE email = $1", [email]);
+        if (result.rows.length > 0) res.json({ success: true, redirect: "trainer.html", trainerId: result.rows[0].trainer_id });
+        else res.status(401).json({ success: false, message: "Trainer not found" });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
+});
+
+app.post("/api/login/admin", async (req, res) => {
+    const { email } = req.body;
+    try {
+        const result = await pool.query("SELECT admin_id FROM Admin WHERE email = $1", [email]);
+        if (result.rows.length > 0) res.json({ success: true, redirect: "admin.html", adminId: result.rows[0].admin_id });
+        else res.status(401).json({ success: false, message: "Invalid credentials" });
+    } catch (e) {
+        res.status(500).json({ success: false, message: e.message });
+    }
 });
 
 app.get("/api/member/:id/dashboard", async (req, res) => {
@@ -107,6 +162,9 @@ app.post("/api/member/goal", async (req, res) => {
 app.post("/api/member/book-pt", async (req, res) => {
     const { memberId, trainerId, roomId, time } = req.body;
     try {
+        const roomConflict = await pool.query("SELECT * FROM PTSession WHERE room_id = $1 AND session_time = $2", [roomId, time]);
+        if (roomConflict.rows.length > 0) return res.json({ success: false, message: "Room is booked!" });
+
         const check = await pool.query("SELECT * FROM PTSession WHERE trainer_id = $1 AND session_time = $2", [trainerId, time]);
         if (check.rows.length > 0) return res.json({ success: false, message: "Trainer busy!" });
 
@@ -126,6 +184,14 @@ app.post("/api/member/book-pt", async (req, res) => {
 app.post("/api/member/register-class", async (req, res) => {
     const { memberId, classId } = req.body;
     try {
+        const countRes = await pool.query("SELECT COUNT(*) FROM ClassRegistration WHERE class_id = $1", [classId]);
+
+        const capRes = await pool.query("SELECT capacity FROM Class WHERE class_id = $1", [classId]);
+
+        if (parseInt(countRes.rows[0].count) >= capRes.rows[0].capacity) {
+            return res.json({ success: false, message: "Class is full" });
+        }
+
         await pool.query("INSERT INTO ClassRegistration (member_id, class_id) VALUES ($1, $2)", [memberId, classId]);
         res.json({ success: true, message: "Registered for class!" });
     } catch (e) {
@@ -136,6 +202,15 @@ app.post("/api/member/register-class", async (req, res) => {
 app.post("/api/trainer/availability", async (req, res) => {
     const { trainerId, startTime, endTime } = req.body;
     try {
+        const overlap = await pool.query(
+            `SELECT * FROM TrainerAvailability 
+     WHERE trainer_id = $1 
+     AND NOT ($3 <= start_time OR $2 >= end_time)`,
+            [trainerId, startTime, endTime]
+        );
+
+        if (overlap.rows.length > 0) return res.json({ success: false, message: "Overlapping availability!" });
+
         await pool.query("INSERT INTO TrainerAvailability (trainer_id, start_time, end_time) VALUES ($1, $2, $3)", [trainerId, startTime, endTime]);
         res.json({ success: true, message: "Availability set!" });
     } catch (e) {
