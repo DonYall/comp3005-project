@@ -80,7 +80,6 @@ def member_dashboard(member_id):
                 print(">> Goal Set!")
 
             elif choice == '3':
-                # CHANGED: Trainer ID -> Trainer Email
                 t_email = get_input("Trainer Email")
                 tid = get_id_by_email(cur, "Trainer", t_email, "trainer_id")
                 
@@ -88,7 +87,7 @@ def member_dashboard(member_id):
                     print(">> Error: Trainer email not found!")
                     continue
 
-                rid = get_input("Room ID") # Rooms don't have emails, keeping ID
+                rid = get_input("Room ID")
                 time = get_input("Time (YYYY-MM-DD HH:MM:SS)")
                 
                 # Checks
