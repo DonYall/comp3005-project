@@ -20,12 +20,19 @@ def get_connection():
 
 # --- UTILITY FUNCTIONS ---
 def print_header(title):
-    print("\n" + "="*40)
+    print("\n" + "="*50)
     print(f" {title}")
-    print("="*40)
+    print("="*50)
 
 def get_input(prompt):
     return input(f"{prompt}: ").strip()
+
+def get_id_by_email(cur, table, email, id_col):
+    """Helper to resolve Email -> ID"""
+    query = f"SELECT {id_col} FROM {table} WHERE email = %s"
+    cur.execute(query, (email,))
+    row = cur.fetchone()
+    return row[0] if row else None
 
 # --- MEMBER FUNCTIONS ---
 def member_dashboard(member_id):
@@ -43,22 +50,22 @@ def member_dashboard(member_id):
             print(f"Latest Weight: {stats.get('latest_weight', 'N/A')} kg")
             print(f"Current Goal:  {stats.get('active_goal', 'None')} (Target: {stats.get('target_value', 'N/A')})")
             print(f"Next Session:  {stats.get('next_pt_session', 'None')}")
-            print("-" * 40)
+            print("-" * 50)
             
             print("1. Add Health Metric")
             print("2. Set Fitness Goal")
             print("3. Book PT Session")
             print("4. Register for Class")
             print("5. View Health History")
-            print("6. Update Profile")     # <--- NEW FEATURE
-            print("7. Logout")
+            print("6. Update Profile")
+            print("7. View Bills")
+            print("8. Logout")
             
             choice = get_input("Select Option")
 
             if choice == '1':
                 w = get_input("Weight (kg)")
                 hr = get_input("Heart Rate (bpm)")
-                # This INSERT satisfies "Log multiple metric entries; do not overwrite"
                 cur.execute("INSERT INTO HealthMetric (member_id, weight, heart_rate, recorded_at) VALUES (%s, %s, %s, NOW())", 
                             (member_id, w, hr))
                 conn.commit()
@@ -73,8 +80,15 @@ def member_dashboard(member_id):
                 print(">> Goal Set!")
 
             elif choice == '3':
-                tid = get_input("Trainer ID")
-                rid = get_input("Room ID")
+                # CHANGED: Trainer ID -> Trainer Email
+                t_email = get_input("Trainer Email")
+                tid = get_id_by_email(cur, "Trainer", t_email, "trainer_id")
+                
+                if not tid:
+                    print(">> Error: Trainer email not found!")
+                    continue
+
+                rid = get_input("Room ID") # Rooms don't have emails, keeping ID
                 time = get_input("Time (YYYY-MM-DD HH:MM:SS)")
                 
                 # Checks
@@ -119,7 +133,6 @@ def member_dashboard(member_id):
                     print(f">> Error: {e}")
             
             elif choice == '5':
-                # --- VIEW HEALTH HISTORY ---
                 print_header("Health History")
                 cur.execute("""
                     SELECT recorded_at, weight, heart_rate, body_fat, notes 
@@ -132,17 +145,14 @@ def member_dashboard(member_id):
                 if not rows:
                     print("No records found.")
                 else:
-                    print(f"{'Date':<20} | {'Weight (kg)':<12} | {'Heart Rate':<10}")
-                    print("-" * 50)
+                    print(f"{'Date':<20} | {'Weight':<8} | {'HR':<5}")
+                    print("-" * 40)
                     for r in rows:
                         date_str = r[0].strftime("%Y-%m-%d %H:%M")
-                        weight = str(r[1]) if r[1] else "N/A"
-                        hr = str(r[2]) if r[2] else "N/A"
-                        print(f"{date_str:<20} | {weight:<12} | {hr:<10}")
+                        print(f"{date_str:<20} | {str(r[1]):<8} | {str(r[2]):<5}")
                 input("\nPress Enter to return...")
 
             elif choice == '6':
-                # --- UPDATE PROFILE ---
                 print_header("Update Profile")
                 print("1. Update Name")
                 print("2. Update Phone")
@@ -151,29 +161,46 @@ def member_dashboard(member_id):
                 print("5. Back")
                 
                 up_choice = get_input("Select Field")
-                
                 if up_choice == '1':
                     val = get_input("New Name")
                     cur.execute("UPDATE Member SET name = %s WHERE member_id = %s", (val, member_id))
-                    conn.commit()
-                    print(">> Name Updated!")
                 elif up_choice == '2':
                     val = get_input("New Phone")
                     cur.execute("UPDATE Member SET phone = %s WHERE member_id = %s", (val, member_id))
-                    conn.commit()
-                    print(">> Phone Updated!")
                 elif up_choice == '3':
                     val = get_input("New Address")
                     cur.execute("UPDATE Member SET address = %s WHERE member_id = %s", (val, member_id))
-                    conn.commit()
-                    print(">> Address Updated!")
                 elif up_choice == '4':
                     val = get_input("New Email")
                     cur.execute("UPDATE Member SET email = %s WHERE member_id = %s", (val, member_id))
+                
+                if up_choice in ['1','2','3','4']:
                     conn.commit()
-                    print(">> Email Updated!")
+                    print(">> Profile Updated!")
             
             elif choice == '7':
+                print_header("My Bills")
+                cur.execute("""
+                    SELECT amount, due_date, status, created_at 
+                    FROM Bill 
+                    WHERE member_id = %s 
+                    ORDER BY created_at DESC
+                """, (member_id,))
+                rows = cur.fetchall()
+                if not rows:
+                    print("No bills found.")
+                else:
+                    print(f"{'Date Created':<12} | {'Amount':<10} | {'Due Date':<12} | {'Status'}")
+                    print("-" * 55)
+                    for r in rows:
+                        created = r[3].strftime("%Y-%m-%d")
+                        amt = f"${r[0]}"
+                        due = r[1].strftime("%Y-%m-%d") if r[1] else "N/A"
+                        status = r[2]
+                        print(f"{created:<12} | {amt:<10} | {due:<12} | {status}")
+                input("\nPress Enter to return...")
+
+            elif choice == '8':
                 break
         except Exception as e:
             conn.rollback()
@@ -192,10 +219,9 @@ def member_portal():
 
     if choice == '1':
         email = get_input("Email")
-        cur.execute("SELECT member_id FROM Member WHERE email = %s", (email,))
-        row = cur.fetchone()
-        if row:
-            member_dashboard(row[0])
+        mid = get_id_by_email(cur, "Member", email, "member_id")
+        if mid:
+            member_dashboard(mid)
         else:
             print(">> Member not found.")
 
@@ -203,11 +229,15 @@ def member_portal():
         name = get_input("Name")
         email = get_input("Email")
         dob = get_input("DOB (YYYY-MM-DD)")
-        cur.execute("INSERT INTO Member (name, email, date_of_birth) VALUES (%s, %s, %s) RETURNING member_id", (name, email, dob))
-        mid = cur.fetchone()[0]
-        conn.commit()
-        print(f">> Registered! Your ID is {mid}")
-        member_dashboard(mid)
+        try:
+            cur.execute("INSERT INTO Member (name, email, date_of_birth) VALUES (%s, %s, %s) RETURNING member_id", (name, email, dob))
+            mid = cur.fetchone()[0]
+            conn.commit()
+            print(f">> Registered! Welcome {name}.")
+            member_dashboard(mid)
+        except Exception as e:
+            conn.rollback()
+            print(f">> Error: {e}")
     
     conn.close()
 
@@ -227,7 +257,6 @@ def trainer_dashboard(trainer_id):
             start = get_input("Start Time (YYYY-MM-DD HH:MM:SS)")
             end = get_input("End Time (YYYY-MM-DD HH:MM:SS)")
             
-            # Overlap check
             cur.execute("""
                 SELECT * FROM TrainerAvailability 
                 WHERE trainer_id = %s AND NOT (%s <= start_time OR %s >= end_time)
@@ -278,21 +307,24 @@ def trainer_portal():
 
     if choice == '1':
         email = get_input("Email")
-        cur.execute("SELECT trainer_id FROM Trainer WHERE email = %s", (email,))
-        row = cur.fetchone()
-        if row:
-            trainer_dashboard(row[0])
+        tid = get_id_by_email(cur, "Trainer", email, "trainer_id")
+        if tid:
+            trainer_dashboard(tid)
         else:
             print(">> Not found.")
 
     elif choice == '2':
         name = get_input("Name")
         email = get_input("Email")
-        cur.execute("INSERT INTO Trainer (name, email) VALUES (%s, %s) RETURNING trainer_id", (name, email))
-        tid = cur.fetchone()[0]
-        conn.commit()
-        print(f">> Registered! Your ID is {tid}")
-        trainer_dashboard(tid)
+        try:
+            cur.execute("INSERT INTO Trainer (name, email) VALUES (%s, %s) RETURNING trainer_id", (name, email))
+            tid = cur.fetchone()[0]
+            conn.commit()
+            print(f">> Registered! Welcome {name}.")
+            trainer_dashboard(tid)
+        except Exception as e:
+            conn.rollback()
+            print(f">> Error: {e}")
     conn.close()
 
 # --- ADMIN FUNCTIONS ---
@@ -304,16 +336,23 @@ def admin_dashboard(admin_id):
         print("1. Create Class (Book Room)")
         print("2. Log Maintenance")
         print("3. Generate Bill")
-        print("4. Logout")
+        print("4. View Maintenance Log")
+        print("5. Logout")
         choice = get_input("Option")
 
         if choice == '1':
             name = get_input("Class Name")
-            tid = get_input("Trainer ID")
+            
+            # CHANGED: Trainer ID -> Trainer Email
+            t_email = get_input("Trainer Email")
+            tid = get_id_by_email(cur, "Trainer", t_email, "trainer_id")
+            if not tid:
+                print(">> Error: Trainer email not found!")
+                continue
+
             rid = get_input("Room ID")
             time = get_input("Time (YYYY-MM-DD HH:MM:SS)")
             
-            # Room Conflict
             cur.execute("SELECT * FROM Class WHERE room_id = %s AND scheduled_time = %s", (rid, time))
             if cur.fetchone():
                 print(">> Error: Room is booked!")
@@ -332,7 +371,13 @@ def admin_dashboard(admin_id):
             print(">> Maintenance Logged.")
 
         elif choice == '3':
-            mid = get_input("Member ID")
+            # CHANGED: Member ID -> Member Email
+            m_email = get_input("Member Email")
+            mid = get_id_by_email(cur, "Member", m_email, "member_id")
+            if not mid:
+                print(">> Error: Member email not found!")
+                continue
+
             amt = get_input("Amount")
             due = get_input("Due Date (YYYY-MM-DD)")
             cur.execute("INSERT INTO Bill (member_id, amount, due_date, status) VALUES (%s, %s, %s, 'unpaid')", (mid, amt, due))
@@ -340,6 +385,28 @@ def admin_dashboard(admin_id):
             print(">> Bill Generated.")
 
         elif choice == '4':
+            print_header("Maintenance Logs")
+            cur.execute("""
+                SELECT m.maintenance_id, e.name, m.issue_description, m.repair_status, m.reported_at
+                FROM MaintenanceLog m
+                JOIN Equipment e ON m.equipment_id = e.equipment_id
+                ORDER BY m.reported_at DESC
+            """)
+            rows = cur.fetchall()
+            if not rows:
+                print("No maintenance records found.")
+            else:
+                print(f"{'Date':<12} | {'Equipment':<15} | {'Status':<10} | {'Issue'}")
+                print("-" * 60)
+                for r in rows:
+                    date_str = r[4].strftime("%Y-%m-%d")
+                    eq_name = r[1][:15]
+                    status = r[3]
+                    issue = r[2]
+                    print(f"{date_str:<12} | {eq_name:<15} | {status:<10} | {issue}")
+            input("\nPress Enter to return...")
+
+        elif choice == '5':
             break
     conn.close()
 
@@ -355,20 +422,23 @@ def admin_portal():
 
     if choice == '1':
         email = get_input("Email")
-        cur.execute("SELECT admin_id FROM Admin WHERE email = %s", (email,))
-        row = cur.fetchone()
-        if row:
-            admin_dashboard(row[0])
+        aid = get_id_by_email(cur, "Admin", email, "admin_id")
+        if aid:
+            admin_dashboard(aid)
         else:
             print(">> Not found.")
     elif choice == '2':
         name = get_input("Name")
         email = get_input("Email")
-        cur.execute("INSERT INTO Admin (name, email) VALUES (%s, %s) RETURNING admin_id", (name, email))
-        aid = cur.fetchone()[0]
-        conn.commit()
-        print(f">> Registered! Your ID is {aid}")
-        admin_dashboard(aid)
+        try:
+            cur.execute("INSERT INTO Admin (name, email) VALUES (%s, %s) RETURNING admin_id", (name, email))
+            aid = cur.fetchone()[0]
+            conn.commit()
+            print(f">> Registered! Welcome {name}.")
+            admin_dashboard(aid)
+        except Exception as e:
+            conn.rollback()
+            print(f">> Error: {e}")
     conn.close()
 
 # --- MAIN LOOP ---
