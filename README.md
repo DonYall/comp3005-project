@@ -8,5 +8,6 @@ Instructions to run:
 - >> python main.py
 - This should begin the application
 
-Youtube Video Link: TODO
+Youtube Video Link: (https://youtu.be/LyISOy1rLtk)
+
 
