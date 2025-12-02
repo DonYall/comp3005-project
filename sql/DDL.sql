@@ -22,6 +22,8 @@ DROP TABLE IF EXISTS Room CASCADE;
 
 DROP TABLE IF EXISTS Member CASCADE;
 
+DROP TABLE IF EXISTS Admin CASCADE;
+
 DROP TABLE IF EXISTS Trainer CASCADE;
 
 -- MEMBER
@@ -46,22 +48,30 @@ CREATE TABLE Trainer (
     bio TEXT
 );
 
--- FITNESS GOAL
+-- ADMIN
+CREATE TABLE Admin (
+    admin_id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    phone VARCHAR(20)
+);
+
 CREATE TABLE FitnessGoal (
     goal_id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL REFERENCES Member (member_id) ON
+    member_id INT NOT NULL REFERENCES Member(member_id) ON
     DELETE
         CASCADE,
         goal_type VARCHAR(100) NOT NULL,
         target_value NUMERIC(10, 2),
         start_date DATE NOT NULL,
         end_date DATE,
+        status VARCHAR(50) DEFAULT 'active'
 );
 
 -- HEALTH METRIC
 CREATE TABLE HealthMetric (
     metric_id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL REFERENCES Member (member_id) ON
+    member_id INT NOT NULL REFERENCES Member(member_id) ON
     DELETE
         CASCADE,
         recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -77,12 +87,13 @@ CREATE TABLE Room (
     room_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     capacity INT CHECK (capacity > 0),
+    room_type VARCHAR(50)
 );
 
 -- EQUIPMENT
 CREATE TABLE Equipment (
     equipment_id SERIAL PRIMARY KEY,
-    room_id INT REFERENCES Room (room_id) ON
+    room_id INT REFERENCES Room(room_id) ON
     DELETE
     SET
         NULL,
@@ -93,7 +104,7 @@ CREATE TABLE Equipment (
 -- MAINTENANCE LOG
 CREATE TABLE MaintenanceLog (
     maintenance_id SERIAL PRIMARY KEY,
-    equipment_id INT NOT NULL REFERENCES Equipment (equipment_id) ON
+    equipment_id INT NOT NULL REFERENCES Equipment(equipment_id) ON
     DELETE
         CASCADE,
         issue_description TEXT NOT NULL,
@@ -106,52 +117,52 @@ CREATE TABLE MaintenanceLog (
 CREATE TABLE Class (
     class_id SERIAL PRIMARY KEY,
     class_name VARCHAR(100) NOT NULL,
-    trainer_id INT NOT NULL REFERENCES Trainer (trainer_id) ON
+    trainer_id INT NOT NULL REFERENCES Trainer(trainer_id) ON
     DELETE
         CASCADE,
-        room_id INT NOT NULL REFERENCES Room (room_id) ON
+        room_id INT NOT NULL REFERENCES Room(room_id) ON
     DELETE
         CASCADE,
         scheduled_time TIMESTAMP NOT NULL,
         capacity INT CHECK (capacity > 0),
-        duration INT CHECK (duration > 0) -- minutes
+        duration INT CHECK (duration > 0)
 );
 
 -- CLASS REGISTRATION
 CREATE TABLE ClassRegistration (
     registration_id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL REFERENCES Member (member_id) ON
+    member_id INT NOT NULL REFERENCES Member(member_id) ON
     DELETE
         CASCADE,
-        class_id INT NOT NULL REFERENCES Class (class_id) ON
+        class_id INT NOT NULL REFERENCES Class(class_id) ON
     DELETE
         CASCADE,
         registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (member_id, class_id)
+        UNIQUE(member_id, class_id)
 );
 
--- PERSONAL TRAINING SESSION
+-- PT SESSION
 CREATE TABLE PTSession (
     session_id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL REFERENCES Member (member_id) ON
+    member_id INT NOT NULL REFERENCES Member(member_id) ON
     DELETE
         CASCADE,
-        trainer_id INT NOT NULL REFERENCES Trainer (trainer_id) ON
+        trainer_id INT NOT NULL REFERENCES Trainer(trainer_id) ON
     DELETE
         CASCADE,
-        room_id INT NOT NULL REFERENCES Room (room_id) ON
+        room_id INT NOT NULL REFERENCES Room(room_id) ON
     DELETE
         CASCADE,
         session_time TIMESTAMP NOT NULL,
         status VARCHAR(50) DEFAULT 'scheduled',
-        UNIQUE (trainer_id, session_time),
-        UNIQUE (member_id, session_time)
+        UNIQUE(trainer_id, session_time),
+        UNIQUE(member_id, session_time)
 );
 
 -- TRAINER AVAILABILITY
 CREATE TABLE TrainerAvailability (
     availability_id SERIAL PRIMARY KEY,
-    trainer_id INT NOT NULL REFERENCES Trainer (trainer_id) ON
+    trainer_id INT NOT NULL REFERENCES Trainer(trainer_id) ON
     DELETE
         CASCADE,
         start_time TIMESTAMP NOT NULL,
@@ -159,10 +170,10 @@ CREATE TABLE TrainerAvailability (
         CHECK (end_time > start_time)
 );
 
--- BILLING
+-- BILL
 CREATE TABLE Bill (
     bill_id SERIAL PRIMARY KEY,
-    member_id INT NOT NULL REFERENCES Member (member_id) ON
+    member_id INT NOT NULL REFERENCES Member(member_id) ON
     DELETE
         CASCADE,
         amount NUMERIC(10, 2) NOT NULL,
@@ -174,12 +185,12 @@ CREATE TABLE Bill (
 -- PAYMENT
 CREATE TABLE Payment (
     payment_id SERIAL PRIMARY KEY,
-    bill_id INT NOT NULL REFERENCES Bill (bill_id) ON
+    bill_id INT NOT NULL REFERENCES Bill(bill_id) ON
     DELETE
         CASCADE,
         amount_paid NUMERIC(10, 2) NOT NULL,
         paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        method VARCHAR(50)
+        payment_method VARCHAR(50)
 );
 
 -- DASHBOARD VIEW
@@ -290,7 +301,7 @@ FROM
 
 -- BILL UPDATE TRIGGER
 CREATE
-OR REPLACE FUNCTION update_bill_status() RETURNS TRIGGER AS $ $ BEGIN
+OR REPLACE FUNCTION update_bill_status() RETURNS TRIGGER AS $$ BEGIN
     UPDATE
         Bill
     SET
@@ -317,7 +328,7 @@ RETURN NEW;
 
 END;
 
-$ $ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trg_update_bill_status AFTER
 INSERT

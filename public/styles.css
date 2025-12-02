@@ -1,0 +1,75 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #eef1f5;
+    margin: 0;
+    padding: 0;
+}
+
+.card {
+    background: white;
+    width: 420px;
+    margin: 40px auto;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 0 12px rgba(0,0,0,0.1);
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 10px;
+    border: none;
+    border-radius: 6px;
+    background: #0066ff;
+    color: white;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+button:hover {
+    background: #004ecc;
+}
+
+.back-btn {
+    background: grey;
+    margin-top: 20px;
+}
+
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+
+.section-title {
+    font-size: 16px;
+    color: #764ba2;
+    font-weight: bold;
+    margin-top: 25px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 5px;
+}
+
+.navbar {
+    background: #0066ff;
+    color: white;
+    padding: 15px;
+    font-size: 20px;
+    text-align: center;
+}
+
+.container {
+    width: 80%;
+    margin: 20px auto;
+}
+
+.page-btn {
+    width: 200px;
+}
