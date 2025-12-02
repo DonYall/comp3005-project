@@ -11,7 +11,8 @@ Instructions to run:
 - Run the application
 - `python ./app/main.py`
 
-Youtube Video Link: (https://youtu.be/LyISOy1rLtk)
+Youtube Video Link: (https://youtu.be/aclenOOjBwU)
+
 
 
 
