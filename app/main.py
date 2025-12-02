@@ -2,7 +2,7 @@ import psycopg2
 import sys
 from datetime import datetime
 
-# --- DATABASE CONFIGURATION ---
+# DATABASE CONFIGURATION
 DB_CONFIG = {
     "dbname": "fitness_db",
     "user": "postgres",
@@ -18,7 +18,7 @@ def get_connection():
         print(f"Error connecting to database: {e}")
         sys.exit(1)
 
-# --- UTILITY FUNCTIONS ---
+# UTILITY FUNCTIONS
 def print_header(title):
     print("\n" + "="*50)
     print(f" {title}")
@@ -34,7 +34,7 @@ def get_id_by_email(cur, table, email, id_col):
     row = cur.fetchone()
     return row[0] if row else None
 
-# --- MEMBER FUNCTIONS ---
+# MEMBER FUNCTIONS
 def member_dashboard(member_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -240,7 +240,7 @@ def member_portal():
     
     conn.close()
 
-# --- TRAINER FUNCTIONS ---
+# TRAINER FUNCTIONS
 def trainer_dashboard(trainer_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -326,7 +326,7 @@ def trainer_portal():
             print(f">> Error: {e}")
     conn.close()
 
-# --- ADMIN FUNCTIONS ---
+# ADMIN FUNCTIONS
 def admin_dashboard(admin_id):
     conn = get_connection()
     cur = conn.cursor()
@@ -342,7 +342,6 @@ def admin_dashboard(admin_id):
         if choice == '1':
             name = get_input("Class Name")
             
-            # CHANGED: Trainer ID -> Trainer Email
             t_email = get_input("Trainer Email")
             tid = get_id_by_email(cur, "Trainer", t_email, "trainer_id")
             if not tid:
@@ -370,7 +369,6 @@ def admin_dashboard(admin_id):
             print(">> Maintenance Logged.")
 
         elif choice == '3':
-            # CHANGED: Member ID -> Member Email
             m_email = get_input("Member Email")
             mid = get_id_by_email(cur, "Member", m_email, "member_id")
             if not mid:
@@ -440,7 +438,7 @@ def admin_portal():
             print(f">> Error: {e}")
     conn.close()
 
-# --- MAIN LOOP ---
+# MAIN LOOP
 def main():
     while True:
         print_header("Health & Fitness Club Management System")
