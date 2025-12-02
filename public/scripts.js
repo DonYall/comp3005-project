@@ -91,6 +91,7 @@ async function registerClass() {
         memberId: CURRENT_MEMBER_ID,
         classId: classId,
     });
+    loadDashboard();
 }
 
 async function saveAvailability() {
